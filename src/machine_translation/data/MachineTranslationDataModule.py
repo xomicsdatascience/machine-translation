@@ -7,23 +7,25 @@ import numpy as np
 from machine_translation.data import LineIndexDataset
 from transformers import AutoTokenizer
 
-class EHRDataModule(pl.LightningDataModule):
+class MachineTranslationDataModule(pl.LightningDataModule):
     def __init__(self,
                  en_filepath_suffix: str,
                  de_filepath_suffix: str,
                  maximum_length=512,
+                 batch_size=32,
                  ):
 
         super().__init__()
         self.en_filepath_suffix = en_filepath_suffix
         self.de_filepath_suffix = de_filepath_suffix
         self.maximum_length = maximum_length
-        self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_de_and_en_padding_tokens()
+        self.batch_size = batch_size
+        self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_tokenizer_values()
 
     def setup(self, stage=None):
-        self.train_dataset = LineIndexDataset(f'train{self.de_filepath_suffix}', f'train{self.en_filepath_suffix}')
-        self.val_dataset = LineIndexDataset(f'val{self.de_filepath_suffix}', f'val{self.en_filepath_suffix}')
-        self.test_dataset = LineIndexDataset(f'test{self.de_filepath_suffix}', f'test{self.en_filepath_suffix}')
+        self.train_dataset = LineIndexDataset(f'data/train{self.de_filepath_suffix}', f'data/train{self.en_filepath_suffix}')
+        self.val_dataset = LineIndexDataset(f'data/val{self.de_filepath_suffix}', f'data/val{self.en_filepath_suffix}')
+        self.test_dataset = LineIndexDataset(f'data/test{self.de_filepath_suffix}', f'data/test{self.en_filepath_suffix}')
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, collate_fn=self._collate_function, shuffle=True)
@@ -57,7 +59,7 @@ class EHRDataModule(pl.LightningDataModule):
     def get_tokenizer_values(self):
         de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')
         en_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-        return de_tokenizer.convert_tokens_to_ids([de_tokenizer.pad_token]), \
-            en_tokenizer.convert_tokens_to_ids([en_tokenizer.pad_token]), \
+        return de_tokenizer.convert_tokens_to_ids(de_tokenizer.pad_token), \
+            en_tokenizer.convert_tokens_to_ids(en_tokenizer.pad_token), \
             de_tokenizer.vocab_size, en_tokenizer.vocab_size
 
