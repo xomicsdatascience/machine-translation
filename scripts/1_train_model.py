@@ -67,6 +67,7 @@ def train_model(
         multihead_attention=multihead_attention,
         feedforward_network=feedforward_network,
         numeric_embedding_facade=numeric_embedding_facade,
+        tgt_padding_token=data_module.en_pad_token,
         embedding_dimension=embed_dim,
     )
 

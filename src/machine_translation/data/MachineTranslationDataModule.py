@@ -38,23 +38,26 @@ class MachineTranslationDataModule(pl.LightningDataModule):
 
     def _collate_function(self, batch):
         input_tensors, expected_output_tensors = zip(*batch)
-        input_tensor = nn.utils.rnn.pad_sequence(
+        src_input_tensor = nn.utils.rnn.pad_sequence(
             input_tensors,
             batch_first=True,
             padding_value=self.de_pad_token,
         )
-        expected_output_tensor = nn.utils.rnn.pad_sequence(
+        output_tensor = nn.utils.rnn.pad_sequence(
             expected_output_tensors,
             batch_first=True,
             padding_value=self.en_pad_token,
         )
-        input_tensor = input_tensor[:, :self.maximum_length]
-        expected_output_tensor = expected_output_tensor[:, :self.maximum_length]
+        src_input_tensor = src_input_tensor[:, :self.maximum_length]
+        output_tensor = output_tensor[:, :self.maximum_length]
 
-        input_padding_mask = (input_tensor != self.de_pad_token)
-        expected_output_padding_mask = (expected_output_tensor != self.en_pad_token)
+        tgt_input_tensor = output_tensor[:, :-1]
+        expected_output_tensor = output_tensor[:, 1:]
 
-        return input_tensor, expected_output_tensor, input_padding_mask, expected_output_padding_mask
+        src_padding_mask = (src_input_tensor != self.de_pad_token)
+        tgt_padding_mask = (tgt_input_tensor != self.en_pad_token)
+
+        return src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask
 
     def get_tokenizer_values(self):
         de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')

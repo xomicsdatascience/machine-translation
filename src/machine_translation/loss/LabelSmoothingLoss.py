@@ -1,0 +1,51 @@
+import torch
+from torch import nn
+
+class LabelSmoothingLoss(nn.Module):
+
+    def __init__(self, padding_token_idx, confidence_probability_score):
+        super().__init__()
+        self.padding_token_idx = padding_token_idx
+        self.confidence_probability_score = confidence_probability_score
+        self.inverse_probability_score = 1.0 - confidence_probability_score
+        self.negating_probability_score = 0.0
+        self.criterion = nn.KLDivLoss(reduction='batchmean')
+
+    def forward(self, vocab_logits, expected_output_tokens):
+        self.device = vocab_logits.device
+        smooth_label_expected_distribution = self._create_smooth_label_expected_distribution(expected_output_tokens, *vocab_logits.shape)
+        vocab_logits_reshaped, smooth_label_expected_distribution_reshaped = self._reshape_to_remove_padding_token_targets(
+            vocab_logits, smooth_label_expected_distribution, expected_output_tokens)
+        return self.criterion(vocab_logits_reshaped, smooth_label_expected_distribution_reshaped)
+
+    def _create_smooth_label_expected_distribution(self, expected_output_tokens, batch_size, tgt_sequence_length, tgt_vocab_size):
+        smooth_label_expected_distribution = self._initialize_label_distribution_with_low_confidence_values(batch_size, tgt_sequence_length, tgt_vocab_size)
+        self._set_target_token_to_high_confidence_value(expected_output_tokens, smooth_label_expected_distribution)
+        self._negate_confidence_values_for_padding_tokens(expected_output_tokens, smooth_label_expected_distribution)
+        return smooth_label_expected_distribution
+
+    def _initialize_label_distribution_with_low_confidence_values(self, batch_size, tgt_sequence_length, tgt_vocab_size):
+        number_of_non_target_non_padding_tokens = tgt_vocab_size - 2
+        dispersed_inverse_probability_score = self.inverse_probability_score / number_of_non_target_non_padding_tokens
+        smooth_label_expected_distribution = torch.full((batch_size, tgt_sequence_length, tgt_vocab_size),
+                                                        dispersed_inverse_probability_score, device=self.device)
+        return smooth_label_expected_distribution
+
+    def _set_target_token_to_high_confidence_value(self, expected_output_tokens, smooth_label_expected_distribution):
+        smooth_label_expected_distribution.scatter_(-1, expected_output_tokens.unsqueeze(-1), self.confidence_probability_score)
+
+    def _negate_confidence_values_for_padding_tokens(self, expected_output_tokens, smooth_label_expected_distribution):
+        smooth_label_expected_distribution[:, :, self.padding_token_idx] = self.negating_probability_score
+
+    def _reshape_to_remove_padding_token_targets(self,
+                                                    vocab_logits,
+                                                    smooth_label_expected_distribution,
+                                                    expected_output_tokens,
+                                                ):
+        batch_size, tgt_sequence_length, tgt_vocab_size = vocab_logits.shape
+        vocab_logits_reshaped = vocab_logits.reshape(batch_size*tgt_sequence_length, tgt_vocab_size)
+        smooth_label_expected_distribution_reshaped = smooth_label_expected_distribution.reshape(batch_size*tgt_sequence_length, tgt_vocab_size)
+        padding_token_mask = expected_output_tokens.flatten() == self.padding_token_idx
+        vocab_logits_reshaped = vocab_logits_reshaped[~padding_token_mask]
+        smooth_label_expected_distribution_reshaped = smooth_label_expected_distribution_reshaped[~padding_token_mask]
+        return vocab_logits_reshaped, smooth_label_expected_distribution_reshaped
