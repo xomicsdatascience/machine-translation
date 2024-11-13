@@ -18,11 +18,9 @@ class TensorBoardLoggingModelCheckpoint(ModelCheckpoint):
             )
 
 def train_model(
-        batch_size=32,
-        embed_dim=256,
-        num_encoder_layers=4,
+        embed_dim=512,
         num_heads=8,
-        dim_feedforward=512,
+        dim_feedforward=2048,
         dropout=0.1,
         random_seed=0,
 ):
@@ -59,7 +57,7 @@ def train_model(
     sinusoidal_position_embedding = SinusoidalPositionEmbedding(embed_dim)
     numeric_embedding_facade = NumericEmbeddingFacade(sinusoidal_position=sinusoidal_position_embedding)
     multihead_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout))
-    feedforward_network = FeedForwardNetwork(embed_dim, dim_feedforward, 'leaky_relu_steep', dropout)
+    feedforward_network = FeedForwardNetwork(embed_dim, dim_feedforward, 'relu', dropout)
 
     model = MachineTranslationModel(
         src_vocab_size=data_module.de_vocab_size,

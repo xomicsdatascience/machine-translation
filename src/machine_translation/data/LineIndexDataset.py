@@ -6,11 +6,17 @@ class LineIndexDataset(Dataset):
     def __init__(self, input_filepath, expected_output_filepath):
         self.input_filepath = input_filepath
         self.expected_output_filepath = expected_output_filepath
-        with open(input_filepath, 'r') as f:
-            self.length = sum(1 for line in f)
+        lengths = []
+        with open(input_filepath, 'r') as input_file, open(expected_output_filepath, 'r') as expected_output_file:
+            for input_line, expected_output_line in zip(input_file, expected_output_file):
+
+                input_token_count = input_line.count(',')
+                output_token_count = expected_output_line.count(',')
+                lengths.append(input_token_count + output_token_count)
+        self.lengths = lengths
 
     def __len__(self):
-        return self.length
+        return len(self.lengths)
 
     def __getitem__(self, idx):
         with open(self.input_filepath, 'r') as input_file, \

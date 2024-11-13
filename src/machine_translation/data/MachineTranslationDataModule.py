@@ -4,22 +4,22 @@ import pytorch_lightning as pl
 import pandas as pd
 from torch.utils.data import DataLoader
 import numpy as np
-from machine_translation.data import LineIndexDataset
+from machine_translation.data import LengthBatchSampler, LineIndexDataset
 from transformers import AutoTokenizer
 
 class MachineTranslationDataModule(pl.LightningDataModule):
     def __init__(self,
                  en_filepath_suffix: str,
                  de_filepath_suffix: str,
-                 maximum_length=512,
-                 batch_size=32,
+                 maximum_length=5000,
+                 #batch_size=32,
                  ):
 
         super().__init__()
         self.en_filepath_suffix = en_filepath_suffix
         self.de_filepath_suffix = de_filepath_suffix
         self.maximum_length = maximum_length
-        self.batch_size = batch_size
+        #self.batch_size = batch_size
         self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_tokenizer_values()
 
     def setup(self, stage=None):
@@ -28,13 +28,16 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         self.test_dataset = LineIndexDataset(f'data/test{self.de_filepath_suffix}', f'data/test{self.en_filepath_suffix}')
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, collate_fn=self._collate_function, shuffle=True)
+        sampler = LengthBatchSampler(self.train_dataset, self.maximum_length, shuffle=True)
+        return DataLoader(self.train_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, collate_fn=self._collate_function, shuffle=False)
+        sampler = LengthBatchSampler(self.val_dataset, self.maximum_length)
+        return DataLoader(self.val_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, collate_fn=self._collate_function, shuffle=False)
+        sampler = LengthBatchSampler(self.test_dataset, self.maximum_length)
+        return DataLoader(self.test_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def _collate_function(self, batch):
         input_tensors, expected_output_tensors = zip(*batch)

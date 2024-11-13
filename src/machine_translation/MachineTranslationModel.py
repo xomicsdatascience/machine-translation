@@ -1,5 +1,7 @@
 import torch
 from torch import nn
+from torch.optim import Adam
+from torch.optim.lr_scheduler import LambdaLR
 from torch.nn import functional as F
 import pytorch_lightning as pl
 from copy import deepcopy
@@ -19,10 +21,12 @@ class MachineTranslationModel(pl.LightningModule):
              num_encoder_layers: int=6,
              num_decoder_layers: int=6,
              dropout: float=0.1,
+             scheduler_warmup_steps: int=4_000
             ):
         super().__init__()
         self.embedding_dimension = embedding_dimension
         self.numeric_embedding_facade = numeric_embedding_facade
+        self.scheduler_warmup_steps = scheduler_warmup_steps
         self.src_token_embedding = nn.Embedding(src_vocab_size, embedding_dimension)
         self.tgt_token_embedding = nn.Embedding(tgt_vocab_size, embedding_dimension)
         encoder_layer = EncoderLayer(embedding_dimension, multihead_attention, feedforward_network, dropout)
@@ -70,8 +74,14 @@ class MachineTranslationModel(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
-        return optimizer
+        optimizer = Adam(self.parameters(), lr=1.0, betas=(0.9, 0.98), eps=1e-9)
+
+        def lr_lambda(step):
+            step = step + 1
+            return self.embedding_dimension**(-0.5) * min(step**(-0.5), step * self.scheduler_warmup_steps**(-1.5))
+
+        scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
+        return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]
 
 class VocabOutputSoftmaxLayer(nn.Module):
     def __init__(self,
