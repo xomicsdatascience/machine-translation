@@ -13,7 +13,9 @@ class MachineTranslationModel(pl.LightningModule):
     def __init__(self,
              src_vocab_size: int,
              tgt_vocab_size: int,
-             multihead_attention,
+             encoder_self_attention,
+             decoder_self_attention,
+             decoder_cross_attention,
              feedforward_network,
              numeric_embedding_facade,
              tgt_padding_token: int,
@@ -29,9 +31,9 @@ class MachineTranslationModel(pl.LightningModule):
         self.scheduler_warmup_steps = scheduler_warmup_steps
         self.src_token_embedding = nn.Embedding(src_vocab_size, embedding_dimension)
         self.tgt_token_embedding = nn.Embedding(tgt_vocab_size, embedding_dimension)
-        encoder_layer = EncoderLayer(embedding_dimension, multihead_attention, feedforward_network, dropout)
+        encoder_layer = EncoderLayer(embedding_dimension, encoder_self_attention, feedforward_network, dropout)
         self.encoder = Encoder(encoder_layer, number_of_layers=num_encoder_layers)
-        decoder_layer = DecoderLayer(embedding_dimension, multihead_attention, multihead_attention, feedforward_network, dropout)
+        decoder_layer = DecoderLayer(embedding_dimension, decoder_self_attention, decoder_cross_attention, feedforward_network, dropout)
         self.decoder = Decoder(decoder_layer, number_of_layers=num_decoder_layers)
         self.vocab_output_layer = VocabOutputSoftmaxLayer(embedding_dimension, tgt_vocab_size)
         self.loss_method = LabelSmoothingLoss(tgt_padding_token, confidence_probability_score=0.9)

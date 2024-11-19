@@ -56,13 +56,16 @@ def train_model(
 
     sinusoidal_position_embedding = SinusoidalPositionEmbedding(embed_dim)
     numeric_embedding_facade = NumericEmbeddingFacade(sinusoidal_position=sinusoidal_position_embedding)
-    multihead_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout))
+    generic_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout))
+    decoder_self_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout, is_causal_masking=True))
     feedforward_network = FeedForwardNetwork(embed_dim, dim_feedforward, 'relu', dropout)
 
     model = MachineTranslationModel(
         src_vocab_size=data_module.de_vocab_size,
         tgt_vocab_size=data_module.en_vocab_size,
-        multihead_attention=multihead_attention,
+        encoder_self_attention=generic_attention,
+        decoder_self_attention=decoder_self_attention,
+        decoder_cross_attention=generic_attention,
         feedforward_network=feedforward_network,
         numeric_embedding_facade=numeric_embedding_facade,
         tgt_padding_token=data_module.en_pad_token,
