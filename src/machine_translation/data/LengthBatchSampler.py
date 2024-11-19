@@ -1,4 +1,4 @@
-from torch.utils.data import Sampler, RandomSampler
+from torch.utils.data import Sampler
 import random
 
 class LengthBatchSampler(Sampler):
