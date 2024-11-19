@@ -11,7 +11,7 @@ class MachineTranslationDataModule(pl.LightningDataModule):
     def __init__(self,
                  en_filepath_suffix: str,
                  de_filepath_suffix: str,
-                 maximum_length=5000,
+                 maximum_length=2000,
                  #batch_size=32,
                  ):
 
@@ -23,9 +23,9 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_tokenizer_values()
 
     def setup(self, stage=None):
-        self.train_dataset = LineIndexDataset(f'data/train{self.de_filepath_suffix}', f'data/train{self.en_filepath_suffix}')
-        self.val_dataset = LineIndexDataset(f'data/val{self.de_filepath_suffix}', f'data/val{self.en_filepath_suffix}')
-        self.test_dataset = LineIndexDataset(f'data/test{self.de_filepath_suffix}', f'data/test{self.en_filepath_suffix}')
+        self.train_dataset = LineIndexDataset(f'/common/meyerjlab/caleb__machine_translation_files/train{self.de_filepath_suffix}', f'/common/meyerjlab/caleb__machine_translation_files/train{self.en_filepath_suffix}')
+        self.val_dataset = LineIndexDataset(f'/common/meyerjlab/caleb__machine_translation_files/val{self.de_filepath_suffix}', f'/common/meyerjlab/caleb__machine_translation_files/val{self.en_filepath_suffix}')
+        self.test_dataset = LineIndexDataset(f'/common/meyerjlab/caleb__machine_translation_files/test{self.de_filepath_suffix}', f'/common/meyerjlab/caleb__machine_translation_files/test{self.en_filepath_suffix}')
 
     def train_dataloader(self):
         sampler = LengthBatchSampler(self.train_dataset, self.maximum_length, shuffle=True)
