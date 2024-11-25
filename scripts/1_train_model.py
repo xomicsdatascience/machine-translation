@@ -46,7 +46,7 @@ def train_model(
         filename="best-train-loss-{epoch:02d}-{step:08d}-{train_loss:.2f}",
         save_top_k=1,
         mode="min",
-        every_n_train_steps=3,
+        every_n_train_steps=50,
     )
 
     val_loss_checkpoint_callback = TensorBoardLoggingModelCheckpoint(
