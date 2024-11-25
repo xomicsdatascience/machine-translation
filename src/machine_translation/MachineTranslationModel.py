@@ -39,18 +39,20 @@ class MachineTranslationModel(pl.LightningModule):
         self.loss_method = LabelSmoothingLoss(tgt_padding_token, confidence_probability_score=0.9)
 
     def forward(self, src_tensor, tgt_tensor, src_padding_mask, tgt_padding_mask):
-        src_encoded = self.encode(src_tensor, src_padding_mask)
-        decoder_output = self.decode(tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask)
+        src_encoded = self.forward_encode(src_tensor, src_padding_mask)
+        decoder_output = self.forward_decode(tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask)
         vocabulary_logits = self.vocab_output_layer(decoder_output)
         return vocabulary_logits
 
-    def encode(self, src_tensor, src_padding_mask):
+    def forward_encode(self, src_tensor, src_padding_mask):
         src_embedding = self.src_token_embedding(src_tensor) * math.sqrt(self.embedding_dimension)
         position_embedding = self.numeric_embedding_facade.calculate_sinusoidal_and_learned_tokenizations(src_embedding)
         event_encoded = self.encoder(src=src_embedding + position_embedding, src_padding_mask=src_padding_mask, numeric_embedding_facade=self.numeric_embedding_facade)
         return event_encoded
 
-    def decode(self, tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask):
+    def forward_decode(self, tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask):
+        if tgt_tensor.shape[0] != src_encoded.shape[0]:
+            src_encoded = src_encoded[0].repeat(tgt_tensor.shape[0], 1, 1)
         tgt_embedding = self.tgt_token_embedding(tgt_tensor) * math.sqrt(self.embedding_dimension)
         output = self.decoder(
             tgt=tgt_embedding,
