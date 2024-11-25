@@ -40,13 +40,11 @@ def train_model(
         name=f"machine_translation",
     )
 
-    train_loss_checkpoint_callback = TensorBoardLoggingModelCheckpoint(
-        monitor="train_loss",
+    train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
-        filename="best-train-loss-{epoch:02d}-{step:08d}-{train_loss:.2f}",
-        save_top_k=1,
-        mode="min",
         every_n_train_steps=50,
+        save_top_k=2,
+        save_last=True,
     )
 
     val_loss_checkpoint_callback = TensorBoardLoggingModelCheckpoint(
@@ -122,7 +120,7 @@ def train_model(
             val_loss_checkpoint_callback,
             ValidateAtCheckpoints(list(range(0, 28128, 50))[1:]),
         ],
-        log_every_n_steps=5,
+        log_every_n_steps=50,
 
     )
 
