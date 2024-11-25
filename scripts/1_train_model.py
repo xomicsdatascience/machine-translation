@@ -43,7 +43,7 @@ def train_model(
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
         every_n_train_steps=50,
-        save_top_k=2,
+        filename="train-loss-{epoch:02d}-{step:08d}",
         save_last=True,
     )
 
