@@ -70,7 +70,7 @@ def train_model(
                     for batch in trainer.val_dataloaders:
                         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
                         batch_size = src_input_tensor.shape[0]
-                        pl_module.validation_step(batch, batch_idx)
+                        pl_module.validation_step(tuple([x.to(pl_module.device) for x in batch]), batch_idx)
                         for i in range(batch_size):
                             #if i % 5 == 0 and i != 0:
                             #    print(i)
