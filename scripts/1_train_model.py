@@ -66,51 +66,43 @@ def train_model(
             if batch_idx in self.checkpoints:
                 reference_translations = []
                 output_translations = []
+                with torch.no_grad():
+                    for batch in trainer.val_dataloaders:
+                        src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
+                        batch_size = src_input_tensor.shape[0]
+                        pl_module.validation_step(batch, batch_idx)
+                        for i in range(batch_size):
+                            #if i % 5 == 0 and i != 0:
+                            #    print(i)
+                            #    break
 
-                for batch in trainer.val_dataloaders:
-                    src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
-                    batch_size = src_input_tensor.shape[0]
-                    for i in range(batch_size):
-                        #if i % 5 == 0 and i != 0:
-                        #    print(i)
-                        #    break
-                        src_input_sample = src_input_tensor[i]
-                        tgt_input_sample = tgt_input_tensor[i]
-                        src_mask = src_input_sample != self.de_tokenizer.convert_tokens_to_ids(self.de_tokenizer.pad_token)
-                        tgt_mask = tgt_input_sample != self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.pad_token)
-                        src_input_sample_without_padding = torch.masked_select(src_input_sample, src_mask)
-                        src_input_sample_without_padding = src_input_sample_without_padding.unsqueeze(0)
+                            src_input_sample = src_input_tensor[i]
+                            tgt_input_sample = tgt_input_tensor[i]
+                            src_mask = src_input_sample != self.de_tokenizer.convert_tokens_to_ids(self.de_tokenizer.pad_token)
+                            tgt_mask = tgt_input_sample != self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.pad_token)
+                            src_input_sample_without_padding = torch.masked_select(src_input_sample, src_mask)
+                            src_input_sample_without_padding = src_input_sample_without_padding.unsqueeze(0)
 
-                        tgt_input_sample_without_padding = torch.masked_select(tgt_input_sample, tgt_mask)
-                        tgt_input_sample_without_padding = tgt_input_sample_without_padding.unsqueeze(0)
-                        src_encoded = pl_module.forward_encode(src_input_sample_without_padding.to(pl_module.device), src_padding_mask=None)
-                        generated_tensor = self.generator.generate_sequence(pl_module,
-                                                                            self.en_tokenizer.convert_tokens_to_ids(
-                                                                                self.en_tokenizer.sep_token),
-                                                                            torch.tensor([[
-                                                                                              self.en_tokenizer.convert_tokens_to_ids(
-                                                                                                  self.en_tokenizer.cls_token)]]).to(
-                                                                                src_encoded.device),
-                                                                            src_encoded=src_encoded,
-                                                                            src_padding_mask=None,
-                                                                            tgt_padding_mask=None,
-                                                                            )
-                        reference_translations.append(
-                            self.en_tokenizer.decode([int(x) for x in tgt_input_sample_without_padding.flatten()]))
-                        output_translations.append(self.en_tokenizer.decode([int(x) for x in generated_tensor]))
-                    #break
-                bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
-                #print("BLEU score:", bleu_score.score)
-                #print('*' * 50)
-                #for output_translation, reference_translation in zip(output_translations, reference_translations):
-                #    print(output_translation)
-                #    print(reference_translation)
-                #    print('*' * 25)
-                pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
-
-                val_batch = next(iter(trainer.val_dataloaders))
-                val_batch = tuple([x.to(pl_module.device) for x in val_batch])
-                pl_module.validation_step(val_batch, batch_idx)
+                            tgt_input_sample_without_padding = torch.masked_select(tgt_input_sample, tgt_mask)
+                            tgt_input_sample_without_padding = tgt_input_sample_without_padding.unsqueeze(0)
+                            src_encoded = pl_module.forward_encode(src_input_sample_without_padding.to(pl_module.device), src_padding_mask=None)
+                            generated_tensor = self.generator.generate_sequence(pl_module,
+                                                                                self.en_tokenizer.convert_tokens_to_ids(
+                                                                                    self.en_tokenizer.sep_token),
+                                                                                torch.tensor([[
+                                                                                                  self.en_tokenizer.convert_tokens_to_ids(
+                                                                                                      self.en_tokenizer.cls_token)]]).to(
+                                                                                    src_encoded.device),
+                                                                                src_encoded=src_encoded,
+                                                                                src_padding_mask=None,
+                                                                                tgt_padding_mask=None,
+                                                                                )
+                            reference_translations.append(
+                                self.en_tokenizer.decode([int(x) for x in tgt_input_sample_without_padding.flatten()]))
+                            output_translations.append(self.en_tokenizer.decode([int(x) for x in generated_tensor]))
+                        #break
+                    bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
+                    pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
 
     trainer = pl.Trainer(
         max_epochs=30,
