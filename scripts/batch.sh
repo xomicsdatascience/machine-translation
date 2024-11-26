@@ -5,7 +5,7 @@
 #SBATCH -c 1 # number of cores
 #SBATCH --mem 40G # memory pool for all cores
 #SBATCH -t 29-00:00 # time (D-HH:MM)
-#SBATCH --job-name=original-transformer
+#SBATCH --job-name=orgnl-trfrmr
 #SBATCH -o /home/cranneyc/machine-translation/scripts/slurmOutputs/slurm.%j.out # STDOUT
 #SBATCH -e /home/cranneyc/machine-translation/scripts/slurmOutputs/slurm.%j.err # STDERR
 #SBATCH --mail-type=ALL
