@@ -110,7 +110,7 @@ def train_model(
         callbacks=[
             train_loss_checkpoint_callback,
             val_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 28128, 3))[1:]),
+            ValidateAtCheckpoints(list(range(0, 28128, 50))[1:]),
         ],
         log_every_n_steps=50,
 
