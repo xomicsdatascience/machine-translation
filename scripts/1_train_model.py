@@ -70,7 +70,7 @@ def train_model(
                     for batch in trainer.val_dataloaders:
                         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
                         batch_size = src_input_tensor.shape[0]
-                        pl_module.validation_step(batch, batch_idx)
+                        pl_module.validation_step(tuple([x.to(pl_module.device) for x in batch]), batch_idx)
                         for i in range(batch_size):
                             #if i % 5 == 0 and i != 0:
                             #    print(i)
@@ -110,7 +110,7 @@ def train_model(
         callbacks=[
             train_loss_checkpoint_callback,
             val_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 28128, 50))[1:]),
+            ValidateAtCheckpoints(list(range(0, 28128, 3))[1:]),
         ],
         log_every_n_steps=50,
 
