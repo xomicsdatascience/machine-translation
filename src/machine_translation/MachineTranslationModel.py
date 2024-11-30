@@ -52,7 +52,9 @@ class MachineTranslationModel(pl.LightningModule):
 
     def forward_decode(self, tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask):
         if tgt_tensor.shape[0] != src_encoded.shape[0]:
-            src_encoded = src_encoded[0].repeat(tgt_tensor.shape[0], 1, 1)
+            beam_width = tgt_tensor.shape[0] // src_encoded.shape[0]
+            src_encoded = src_encoded.repeat_interleave(beam_width, dim=0)
+            src_padding_mask = src_padding_mask.repeat_interleave(beam_width, dim=0)
         tgt_embedding = self.tgt_token_embedding(tgt_tensor) * math.sqrt(self.embedding_dimension)
         output = self.decoder(
             tgt=tgt_embedding,
