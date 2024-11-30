@@ -58,49 +58,43 @@ def train_model(
     class ValidateAtCheckpoints(pl.Callback):
         def __init__(self, checkpoints):
             self.checkpoints = checkpoints
-            self.generator = GeneratorContext(method='beam')
+            self.generator = GeneratorContext(method='beam_batch')
             self.de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')
             self.en_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
         def on_train_batch_end(self, trainer, pl_module, outputs, train_batch, batch_idx, **kwargs):
+            end_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.sep_token)
+            start_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.cls_token)
             if batch_idx in self.checkpoints:
                 reference_translations = []
                 output_translations = []
                 with torch.no_grad():
                     for batch in trainer.val_dataloaders:
+                        batch = tuple(x.to(pl_module.device) for x in batch)
                         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
+                        output_tensor = torch.cat((tgt_input_tensor, expected_output_tensor[:, -1:]), dim=1)
                         batch_size = src_input_tensor.shape[0]
+                        tgt_starting_input = torch.full((batch_size, 1), start_token).to(pl_module.device)
                         pl_module.validation_step(tuple([x.to(pl_module.device) for x in batch]), batch_idx)
+                        src_encoded = pl_module.forward_encode(src_input_tensor.to(pl_module.device),
+                                                               src_padding_mask=None)
+                        generated_batch_tensor = self.generator.generate_sequence(pl_module,
+                                                                            end_token,
+                                                                            tgt_starting_input,
+                                                                            src_encoded=src_encoded,
+                                                                            src_padding_mask=src_padding_mask,
+                                                                            tgt_padding_mask=None,
+                                                                            )
                         for i in range(batch_size):
-                            #if i % 5 == 0 and i != 0:
-                            #    print(i)
-                            #    break
-
-                            src_input_sample = src_input_tensor[i]
-                            tgt_input_sample = tgt_input_tensor[i]
-                            src_mask = src_input_sample != self.de_tokenizer.convert_tokens_to_ids(self.de_tokenizer.pad_token)
-                            tgt_mask = tgt_input_sample != self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.pad_token)
-                            src_input_sample_without_padding = torch.masked_select(src_input_sample, src_mask)
-                            src_input_sample_without_padding = src_input_sample_without_padding.unsqueeze(0)
-
-                            tgt_input_sample_without_padding = torch.masked_select(tgt_input_sample, tgt_mask)
-                            tgt_input_sample_without_padding = tgt_input_sample_without_padding.unsqueeze(0)
-                            src_encoded = pl_module.forward_encode(src_input_sample_without_padding.to(pl_module.device), src_padding_mask=None)
-                            generated_tensor = self.generator.generate_sequence(pl_module,
-                                                                                self.en_tokenizer.convert_tokens_to_ids(
-                                                                                    self.en_tokenizer.sep_token),
-                                                                                torch.tensor([[
-                                                                                                  self.en_tokenizer.convert_tokens_to_ids(
-                                                                                                      self.en_tokenizer.cls_token)]]).to(
-                                                                                    src_encoded.device),
-                                                                                src_encoded=src_encoded,
-                                                                                src_padding_mask=None,
-                                                                                tgt_padding_mask=None,
-                                                                                )
-                            reference_translations.append(
-                                self.en_tokenizer.decode([int(x) for x in tgt_input_sample_without_padding.flatten()]))
-                            output_translations.append(self.en_tokenizer.decode([int(x) for x in generated_tensor]))
-                        #break
+                            generated_tgt_tensor = list(generated_batch_tensor[i])
+                            try:
+                                end_token_index = generated_tgt_tensor.index(end_token) + 1
+                            except ValueError:
+                                end_token_index = len(generated_tgt_tensor) + 1
+                            generated_tgt_tensor = generated_tgt_tensor[:end_token_index]
+                            expected_tgt_tensor = output_tensor[i]
+                            reference_translations.append(self.en_tokenizer.decode([int(x) for x in expected_tgt_tensor], skip_special_tokens=True))
+                            output_translations.append(self.en_tokenizer.decode([int(x) for x in generated_tgt_tensor], skip_special_tokens=True))
                     bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
                     pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
 
@@ -110,7 +104,7 @@ def train_model(
         callbacks=[
             train_loss_checkpoint_callback,
             val_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 28128, 50))[1:]),
+            ValidateAtCheckpoints(list(range(0, 28128, 200))[1:]),
         ],
         log_every_n_steps=50,
 
