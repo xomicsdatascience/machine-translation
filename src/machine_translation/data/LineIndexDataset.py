@@ -22,7 +22,6 @@ class LineIndexDataset(Dataset):
         with open(self.input_filepath, 'r') as input_file, \
             open(self.expected_output_filepath, 'r') as expected_output_file:
             input_tensor = [int(token) for token in next(islice(input_file, idx, idx+1)).strip().split(',')]
-            line = next(islice(expected_output_file, idx, idx+1)).strip()
-            expected_output_tensor = [int(token) for token in line.split(',')]
+            expected_output_tensor = [int(token) for token in next(islice(expected_output_file, idx, idx+1)).strip().split(',')]
             return torch.tensor(input_tensor), torch.tensor(expected_output_tensor)
 

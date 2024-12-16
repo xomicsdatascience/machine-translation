@@ -2,9 +2,10 @@ from torch.utils.data import Sampler
 import random
 
 class LengthBatchSampler(Sampler):
-    def __init__(self, dataset, max_length, shuffle=False, max_tokens=10_000):
+    def __init__(self, dataset, batch_size, shuffle=False):#, max_tokens=10_000):
         self.dataset = dataset
-        self.max_tokens = max_tokens
+        self.batch_size = batch_size
+        #self.max_tokens = max_tokens
         self.lengths = self.dataset.lengths
         self.shuffle = shuffle
         self.batches = self._setup_batches()
@@ -23,7 +24,8 @@ class LengthBatchSampler(Sampler):
         current_tokens = 0
         for idx in indices:
             sample_length = self.lengths[idx]
-            if current_tokens + sample_length > self.max_tokens:
+            if len(current_batch) >= self.batch_size:
+            #if current_tokens + sample_length > self.max_tokens:
                 batches.append(current_batch)
                 current_batch = [idx]
                 current_tokens = sample_length
