@@ -1,6 +1,6 @@
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from machine_translation import MachineTranslationModel
 from machine_translation.data import MachineTranslationDataModule
@@ -12,16 +12,9 @@ from attention_smithy.generators import GeneratorContext
 from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
 
-class TensorBoardLoggingModelCheckpoint(ModelCheckpoint):
-    def on_save_checkpoint(self, trainer, pl_module, checkpoint):
-        super().on_save_checkpoint(trainer, pl_module, checkpoint)
-        if self.monitor in trainer.callback_metrics:
-            metric_value = trainer.callback_metrics[self.monitor]
-            trainer.logger.experiment.add_scalar(
-                f"checkpoint/{self.monitor}", metric_value, trainer.global_step
-            )
-
 def train_model(
+        maximum_length=100,
+        batch_size=64,
         embed_dim=512,
         num_heads=8,
         dim_feedforward=2048,
@@ -33,26 +26,17 @@ def train_model(
     data_module = MachineTranslationDataModule(
         en_filepath_suffix='_en.txt',
         de_filepath_suffix='_de.txt',
+        maximum_length=maximum_length,
+        batch_size=batch_size,
     )
     data_module.setup()
-    logger = TensorBoardLogger(
-        "tb_logs",
-        name=f"machine_translation",
-    )
+    logger = WandbLogger(project='machine-translation')
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
         every_n_train_steps=50,
         filename="train-loss-{epoch:02d}-{step:08d}",
         save_last=True,
-    )
-
-    val_loss_checkpoint_callback = TensorBoardLoggingModelCheckpoint(
-        monitor="val_loss",
-        dirpath=f"checkpoints/",
-        filename="best-val-loss-{epoch:02d}-{val_loss:.2f}",
-        save_top_k=1,
-        mode="min",
     )
 
     class ValidateAtCheckpoints(pl.Callback):
@@ -98,16 +82,18 @@ def train_model(
                     bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
                     pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
 
+    torch.set_float32_matmul_precision('medium')
     trainer = pl.Trainer(
-        max_epochs=30,
+        max_epochs=1,
         logger=logger,
         callbacks=[
             train_loss_checkpoint_callback,
-            val_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 28128, 200))[1:]),
+            ValidateAtCheckpoints(list(range(0, 100_000, 200))[1:]),
         ],
         log_every_n_steps=50,
-
+        #strategy='ddp',
+        #devices = 1,
+        #use_distributed_sampler=False,
     )
 
     sinusoidal_position_embedding = SinusoidalPositionEmbedding(embed_dim)

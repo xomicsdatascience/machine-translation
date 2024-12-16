@@ -11,15 +11,15 @@ class MachineTranslationDataModule(pl.LightningDataModule):
     def __init__(self,
                  en_filepath_suffix: str,
                  de_filepath_suffix: str,
-                 maximum_length=5000,
-                 #batch_size=32,
+                 maximum_length,
+                 batch_size,
                  ):
 
         super().__init__()
         self.en_filepath_suffix = en_filepath_suffix
         self.de_filepath_suffix = de_filepath_suffix
         self.maximum_length = maximum_length
-        #self.batch_size = batch_size
+        self.batch_size = batch_size
         self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_tokenizer_values()
 
     def setup(self, stage=None):
@@ -28,15 +28,15 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         self.test_dataset = LineIndexDataset(f'data/test{self.de_filepath_suffix}', f'data/test{self.en_filepath_suffix}')
 
     def train_dataloader(self):
-        sampler = LengthBatchSampler(self.train_dataset, self.maximum_length, shuffle=True)
+        sampler = LengthBatchSampler(self.train_dataset, batch_size=self.batch_size, shuffle=True)
         return DataLoader(self.train_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def val_dataloader(self):
-        sampler = LengthBatchSampler(self.val_dataset, self.maximum_length)
+        sampler = LengthBatchSampler(self.val_dataset, batch_size=self.batch_size)
         return DataLoader(self.val_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def test_dataloader(self):
-        sampler = LengthBatchSampler(self.test_dataset, self.maximum_length)
+        sampler = LengthBatchSampler(self.test_dataset, batch_size=self.batch_size)
         return DataLoader(self.test_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
 
     def _collate_function(self, batch):
@@ -53,7 +53,6 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         )
         src_input_tensor = src_input_tensor[:, :self.maximum_length]
         output_tensor = output_tensor[:, :self.maximum_length]
-
         tgt_input_tensor = output_tensor[:, :-1]
         expected_output_tensor = output_tensor[:, 1:]
 
