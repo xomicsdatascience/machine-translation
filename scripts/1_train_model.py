@@ -13,7 +13,7 @@ from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
 
 def train_model(
-        maximum_length=100,
+        maximum_length=128,
         batch_size=64,
         embed_dim=512,
         num_heads=8,
@@ -88,7 +88,7 @@ def train_model(
         logger=logger,
         callbacks=[
             train_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 100_000, 200))[1:]),
+            ValidateAtCheckpoints(list(range(0, 100_000, 1000))[1:]),
         ],
         log_every_n_steps=50,
         #strategy='ddp',
