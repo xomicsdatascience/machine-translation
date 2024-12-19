@@ -3,9 +3,10 @@ from torch.utils.data import Dataset
 from itertools import islice
 
 class LineIndexDataset(Dataset):
-    def __init__(self, input_filepath, expected_output_filepath):
+    def __init__(self, input_filepath, expected_output_filepath, max_length=100_000):
         self.input_filepath = input_filepath
         self.expected_output_filepath = expected_output_filepath
+        self.max_length = max_length
         lengths = []
         with open(input_filepath, 'r') as input_file, open(expected_output_filepath, 'r') as expected_output_file:
             for input_line, expected_output_line in zip(input_file, expected_output_file):
@@ -15,8 +16,9 @@ class LineIndexDataset(Dataset):
                 lengths.append(input_token_count + output_token_count)
         self.lengths = lengths
 
+
     def __len__(self):
-        return len(self.lengths)
+        return min(len(self.lengths), self.max_length)
 
     def __getitem__(self, idx):
         with open(self.input_filepath, 'r') as input_file, \

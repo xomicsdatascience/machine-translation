@@ -31,12 +31,12 @@ def train_model(
         batch_size=batch_size,
     )
     data_module.setup()
-    logger = WandbLogger(project='machine-translation')
+    logger = WandbLogger(project='machine-translation-small')
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
         every_n_train_steps=50,
-        filename="train-loss-{epoch:02d}-{step:08d}",
+        filename="small__train-loss-{epoch:02d}-{step:08d}",
         save_last=True,
     )
 
@@ -89,7 +89,7 @@ def train_model(
         logger=logger,
         callbacks=[
             train_loss_checkpoint_callback,
-            ValidateAtCheckpoints(list(range(0, 100_000, 1000))[1:]),
+            #ValidateAtCheckpoints(list(range(0, 100_000, 1000))[1:]),
         ],
         log_every_n_steps=50,
         #strategy='ddp',
