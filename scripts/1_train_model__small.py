@@ -13,7 +13,7 @@ from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
 
 def train_model(
-        maximum_length=128,
+        maximum_length=100,
         batch_size=64,
         embed_dim=128,
         num_heads=8,
@@ -31,7 +31,7 @@ def train_model(
         batch_size=batch_size,
     )
     data_module.setup()
-    logger = WandbLogger(project='machine-translation-small')
+    logger = WandbLogger(project='machine-translation-small-DELETE')
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
@@ -41,47 +41,59 @@ def train_model(
     )
 
     class ValidateAtCheckpoints(pl.Callback):
-        def __init__(self, checkpoints):
-            self.checkpoints = checkpoints
-            self.generator = GeneratorContext(method='beam_batch')
+        def __init__(self):
+            self.generator = GeneratorContext(method='beam_batch', no_repeat_ngram_size=3)
             self.de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')
             self.en_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
-        def on_train_batch_end(self, trainer, pl_module, outputs, train_batch, batch_idx, **kwargs):
+        def on_train_epoch_end(self, trainer, pl_module, **kwargs):
             end_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.sep_token)
             start_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.cls_token)
-            if batch_idx in self.checkpoints:
-                reference_translations = []
-                output_translations = []
-                with torch.no_grad():
-                    for batch in trainer.val_dataloaders:
-                        batch = tuple(x.to(pl_module.device) for x in batch)
-                        src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
-                        output_tensor = torch.cat((tgt_input_tensor, expected_output_tensor[:, -1:]), dim=1)
-                        batch_size = src_input_tensor.shape[0]
-                        tgt_starting_input = torch.full((batch_size, 1), start_token).to(pl_module.device)
-                        pl_module.validation_step(tuple([x.to(pl_module.device) for x in batch]), batch_idx)
-                        src_encoded = pl_module.forward_encode(src_input_tensor.to(pl_module.device),
-                                                               src_padding_mask=None)
-                        generated_batch_tensor = self.generator.generate_sequence(pl_module,
-                                                                            end_token,
-                                                                            tgt_starting_input,
-                                                                            src_encoded=src_encoded,
-                                                                            src_padding_mask=src_padding_mask,
-                                                                            tgt_padding_mask=None,
-                                                                            )
-                        for i in range(batch_size):
-                            generated_tgt_tensor = list(generated_batch_tensor[i])
-                            try:
-                                end_token_index = generated_tgt_tensor.index(end_token) + 1
-                            except ValueError:
-                                end_token_index = len(generated_tgt_tensor) + 1
-                            generated_tgt_tensor = generated_tgt_tensor[:end_token_index]
-                            expected_tgt_tensor = output_tensor[i]
-                            reference_translations.append(self.en_tokenizer.decode([int(x) for x in expected_tgt_tensor], skip_special_tokens=True))
-                            output_translations.append(self.en_tokenizer.decode([int(x) for x in generated_tgt_tensor], skip_special_tokens=True))
-                    bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
-                    pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
+            reference_translations = []
+            output_translations = []
+            with torch.no_grad():
+                count = 0
+                max_num_batches = 10
+                for batch in trainer.val_dataloaders:
+                    if count > max_num_batches:
+                        break
+                    count += 1
+                    batch = tuple(x.to(pl_module.device) for x in batch)
+                    src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
+                    output_tensor = torch.cat((tgt_input_tensor, expected_output_tensor[:, -1:]), dim=1)
+                    batch_size = src_input_tensor.shape[0]
+                    tgt_starting_input = torch.full((batch_size, 1), start_token).to(pl_module.device)
+                    src_encoded = pl_module.forward_encode(src_input_tensor.to(pl_module.device),
+                                                           src_padding_mask=None)
+                    generated_batch_tensor = self.generator.generate_sequence(pl_module,
+                                                                        end_token,
+                                                                        tgt_starting_input,
+                                                                        src_encoded=src_encoded,
+                                                                        src_padding_mask=src_padding_mask,
+                                                                        tgt_padding_mask=None,
+                                                                        )
+                    print(f'batch number: {count}')
+                    for i in range(batch_size):
+                        generated_tgt_tensor = list(generated_batch_tensor[i])
+                        try:
+                            end_token_index = generated_tgt_tensor.index(end_token) + 1
+                        except ValueError:
+                            end_token_index = len(generated_tgt_tensor) + 1
+                        generated_tgt_tensor = generated_tgt_tensor[:end_token_index]
+                        expected_tgt_tensor = output_tensor[i]
+                        reference_tokens = [int(x) for x in expected_tgt_tensor]
+                        output_tokens = [int(x) for x in generated_tgt_tensor]
+                        reference_translation = self.en_tokenizer.decode(reference_tokens, skip_special_tokens=True)
+                        output_translation = self.en_tokenizer.decode(output_tokens, skip_special_tokens=True)
+                        print(i)
+                        print(reference_tokens)
+                        print(output_tokens)
+                        print(reference_translation)
+                        print(output_translation)
+                        reference_translations.append(reference_translation)
+                        output_translations.append(output_translation)
+                bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
+                pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
 
     torch.set_float32_matmul_precision('medium')
     trainer = pl.Trainer(
@@ -89,7 +101,7 @@ def train_model(
         logger=logger,
         callbacks=[
             train_loss_checkpoint_callback,
-            #ValidateAtCheckpoints(list(range(0, 100_000, 1000))[1:]),
+            ValidateAtCheckpoints(),
         ],
         log_every_n_steps=50,
         #strategy='ddp',
