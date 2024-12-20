@@ -31,7 +31,7 @@ def train_model(
         batch_size=batch_size,
     )
     data_module.setup()
-    logger = WandbLogger(project='machine-translation-small-DELETE')
+    logger = WandbLogger(project='machine-translation-small')
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
