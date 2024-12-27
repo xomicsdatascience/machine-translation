@@ -22,11 +22,13 @@ class MachineTranslationModel(pl.LightningModule):
              feedforward_network,
              numeric_embedding_facade,
              tgt_padding_token: int,
+             scheduler_warmup_steps: int,
+             loss_type: str,
+             label_smoothing: float,
              embedding_dimension: int=512,
              num_encoder_layers: int=6,
              num_decoder_layers: int=6,
              dropout: float=0.1,
-             scheduler_warmup_steps: int=4_000
             ):
         """
         Args:
@@ -58,8 +60,12 @@ class MachineTranslationModel(pl.LightningModule):
         decoder_layer = DecoderLayer(embedding_dimension, decoder_self_attention, decoder_cross_attention, feedforward_network, dropout)
         self.decoder = Decoder(decoder_layer, number_of_layers=num_decoder_layers)
         self.vocab_output_layer = VocabOutputSoftmaxLayer(embedding_dimension, tgt_vocab_size)
-        self.loss_method = LabelSmoothingLoss(tgt_padding_token, confidence_probability_score=0.9)
-        #self.loss_method = MaskedLoss(tgt_padding_token, label_smoothing=0.9)
+        if loss_type == 'custom':
+            self.loss_method = LabelSmoothingLoss(tgt_padding_token, confidence_probability_score=label_smoothing)
+        elif loss_type == 'simple':
+            self.loss_method = MaskedLoss(tgt_padding_token, label_smoothing=label_smoothing)
+        else:
+            raise RuntimeError("not a valid loss type")
 
     def forward(self, src_tensor, tgt_tensor, src_padding_mask, tgt_padding_mask):
         src_encoded = self.forward_encode(src_tensor, src_padding_mask)

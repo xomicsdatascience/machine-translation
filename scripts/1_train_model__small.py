@@ -1,3 +1,4 @@
+import sys
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import WandbLogger
@@ -13,6 +14,9 @@ from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
 
 def train_model(
+        loss_type: str,
+        label_smoothing: float,
+        scheduler_warmup_steps: int,
         maximum_length=100,
         batch_size=64,
         embed_dim=128,
@@ -31,7 +35,7 @@ def train_model(
         batch_size=batch_size,
     )
     data_module.setup()
-    logger = WandbLogger(project='machine-translation-small')
+    logger = WandbLogger(project='machine-translation-small-testingVariables', name=f'{loss_type}-{label_smoothing}-{scheduler_warmup_steps}')
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
@@ -53,7 +57,7 @@ def train_model(
             output_translations = []
             with torch.no_grad():
                 count = 0
-                max_num_batches = 10
+                max_num_batches = 2
                 for batch in trainer.val_dataloaders:
                     if count > max_num_batches:
                         break
@@ -126,7 +130,10 @@ def train_model(
         tgt_padding_token=data_module.en_pad_token,
         embedding_dimension=embed_dim,
         num_encoder_layers=number_of_layers,
-        num_decoder_layers=number_of_layers, 
+        num_decoder_layers=number_of_layers,
+        scheduler_warmup_steps = scheduler_warmup_steps,
+        loss_type= loss_type,
+        label_smoothing = label_smoothing,
     )
 
     trainer.fit(model, data_module)
@@ -135,4 +142,8 @@ def train_model(
 
 if __name__ == "__main__":
     print("start")
-    train_model()
+    loss_type = sys.argv[1]
+    label_smoothing = float(sys.argv[2])
+    warmup_steps = int(sys.argv[3])
+    print(f'{loss_type}-{label_smoothing}-{warmup_steps}')
+    train_model(loss_type, label_smoothing, warmup_steps)
