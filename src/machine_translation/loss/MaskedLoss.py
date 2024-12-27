@@ -34,17 +34,20 @@ class MaskedLoss(nn.Module):
                 predicted, of shape (batch_size, (sequence_length-1)).
         """
         mask = expected_output_tokens!= self.padding_token_idx
-        if vocab_logits.shape[1] > 5:
-            fifth_token_logits = vocab_logits[:, 0, :]  # 0-indexed, so 4 is the 5th token
-
-            # Apply softmax to the logits to get the probability distribution
-            fifth_token_probs = torch.softmax(fifth_token_logits, dim=-1)
-
-            # Get the index of the token with the highest probability
-            best_tokens = torch.argmax(fifth_token_probs, dim=-1)
-            print([int(x) for x in best_tokens])
+        self._print_predictions(vocab_logits, expected_output_tokens)
         masked_loss = self.criterion(vocab_logits.view(-1, vocab_logits.shape[-1]),
                                      expected_output_tokens.view(-1))
         masked_loss = masked_loss * mask.view(-1)
         masked_loss = masked_loss.sum() / mask.sum()
         return masked_loss
+
+    def _print_predictions(self, vocab_logits, expected_output_tokens):
+        first_sample_token_logits = vocab_logits[0]
+
+        first_sample_token_probs = torch.softmax(first_sample_token_logits, dim=-1)
+
+        best_tokens = torch.argmax(first_sample_token_probs, dim=-1)
+        printable_expected_output = [int(x) for x in expected_output_tokens[0] if int(x) != self.padding_token_idx]
+        printable_generated_output = [int(x) for x in best_tokens][:len(printable_expected_output)]
+        print(printable_expected_output)
+        print(printable_generated_output)

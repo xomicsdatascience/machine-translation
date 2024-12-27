@@ -50,6 +50,7 @@ class LabelSmoothingLoss(nn.Module):
                 predicted, of shape (batch_size, (sequence_length-1)).
         """
         self.device = vocab_logits.device
+        self._print_predictions(vocab_logits, expected_output_tokens)
         smooth_label_expected_distribution = self._create_smooth_label_expected_distribution(expected_output_tokens, *vocab_logits.shape)
         vocab_logits_reshaped, smooth_label_expected_distribution_reshaped = self._reshape_to_remove_padding_token_targets(
             vocab_logits, smooth_label_expected_distribution, expected_output_tokens)
@@ -86,3 +87,14 @@ class LabelSmoothingLoss(nn.Module):
         vocab_logits_reshaped = vocab_logits_reshaped[~padding_token_mask]
         smooth_label_expected_distribution_reshaped = smooth_label_expected_distribution_reshaped[~padding_token_mask]
         return vocab_logits_reshaped, smooth_label_expected_distribution_reshaped
+
+    def _print_predictions(self, vocab_logits, expected_output_tokens):
+        first_sample_token_logits = vocab_logits[0]
+
+        first_sample_token_probs = torch.softmax(first_sample_token_logits, dim=-1)
+
+        best_tokens = torch.argmax(first_sample_token_probs, dim=-1)
+        printable_expected_output = [int(x) for x in expected_output_tokens[0] if int(x) != self.padding_token_idx]
+        printable_generated_output = [int(x) for x in best_tokens][:len(printable_expected_output)]
+        print(printable_expected_output)
+        print(printable_generated_output)

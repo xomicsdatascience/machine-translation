@@ -35,13 +35,14 @@ def train_model(
         batch_size=batch_size,
     )
     data_module.setup()
-    logger = WandbLogger(project='machine-translation-small-testingVariables', name=f'{loss_type}-{label_smoothing}-{scheduler_warmup_steps}')
+
+    run_name_prefix = f'{loss_type}-{label_smoothing}-{scheduler_warmup_steps}'
+    logger = WandbLogger(project='machine-translation-small-testingVariables', name=run_name_prefix)
 
     train_loss_checkpoint_callback = ModelCheckpoint(
         dirpath=f"checkpoints/",
         every_n_train_steps=50,
-        filename="small__train-loss-{epoch:02d}-{step:08d}",
-        save_last=True,
+        filename=run_name_prefix + "-{epoch:02d}-{step:08d}",
     )
 
     class ValidateAtCheckpoints(pl.Callback):
