@@ -2,8 +2,33 @@ import torch
 from torch import nn
 
 class LabelSmoothingLoss(nn.Module):
+    """
+    A class that performs loss functionality for the machine translation project. While a standard
+        KLDivLoss could be directly applied, the writers of the Attention Is All You Need paper outlined
+        a label smoothing pre-process step that is also performed here.
+
+    In training, we want the model to accurately predict the next token in a sequence. At a high level,
+        you could say that the correct next token is 100% right, and all other tokens are 0% right. The
+        model will train just fine if you calculate the loss under this assumption. However, the authors
+        determined to make the correct next token "probably" right, rather than "absolutely" right. In
+        short, the correct next token is 90% (adjustable) right, and the remaining 10% probability is
+        evenly distributed across the remaining tokens. This "smooths" the label probabilities, hence
+        the name.
+
+    This process hurts the training loss score, but improves the final BLEU score, the primary metric used
+        in evaluating translation models from a human's perspective.
+    """
+
 
     def __init__(self, padding_token_idx, confidence_probability_score):
+        """
+        Args:
+            padding_token_idx (int): The padding token ID. The probability for this specific token
+                should always be 0 - it should never be considered in predicting the next token.
+            confidence_probability_score (float): The confidence probability assigned to the correct
+                token (in place of 1.0, or 100%).
+        """
+
         super().__init__()
         self.padding_token_idx = padding_token_idx
         self.confidence_probability_score = confidence_probability_score
@@ -12,6 +37,18 @@ class LabelSmoothingLoss(nn.Module):
         self.criterion = nn.KLDivLoss(reduction='batchmean')
 
     def forward(self, vocab_logits, expected_output_tokens):
+        """
+        Note: In training, the tgt input and the expected output are effectively shifted windows of
+            each other. So if a single token sentence is represented by `sentence`, tgt input is
+            `sentence[:-1]` and the expected output is `sentence[1:]`.
+
+        Args:
+            vocab_logits (torch.Tensor): The output of the machine translation model. This should
+                be of shape (batch_size, (sequence_length-1), vocab_size). It represents the
+                probability calculated by the model for each possible next token of the sequence.
+            expected_output_tokens (torch.Tensor): A tensor representing the next tokens to be
+                predicted, of shape (batch_size, (sequence_length-1)).
+        """
         self.device = vocab_logits.device
         smooth_label_expected_distribution = self._create_smooth_label_expected_distribution(expected_output_tokens, *vocab_logits.shape)
         vocab_logits_reshaped, smooth_label_expected_distribution_reshaped = self._reshape_to_remove_padding_token_targets(

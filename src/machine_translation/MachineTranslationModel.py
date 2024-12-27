@@ -7,9 +7,12 @@ import pytorch_lightning as pl
 from copy import deepcopy
 import math
 from attention_smithy.components import Encoder, Decoder, EncoderLayer, DecoderLayer
-from machine_translation.loss import LabelSmoothingLoss
+from machine_translation.loss import MaskedLoss, LabelSmoothingLoss
 
 class MachineTranslationModel(pl.LightningModule):
+    """
+    The full transformer model that performs a machine translation task.
+    """
     def __init__(self,
              src_vocab_size: int,
              tgt_vocab_size: int,
@@ -25,6 +28,25 @@ class MachineTranslationModel(pl.LightningModule):
              dropout: float=0.1,
              scheduler_warmup_steps: int=4_000
             ):
+        """
+        Args:
+            src_vocab_size (int): The number of total possible tokens in the language being translated
+                FROM (in German-to-English, this would be the number of possible German tokens).
+            tgt_vocab_size (int): The number of total possible tokens in the language being translated
+                TO (in German-to-English, this would be the number of possible English tokens).
+            encoder_self_attention (AttentionMethod): The attention method used for the encoder self
+                attention block. See AttentionSmithy.attention for available attention methods.
+            decoder_self_attention (AttentionMethod): The attention method used for the decoder self
+                attention block. See AttentionSmithy.attention for available attention methods.
+            decoder_cross_attention (AttentionMethod): The attention method used for the decoder cross
+                attention block. See AttentionSmithy.attention for available attention methods.
+            feedforward_network (attention_smithy.components.feedforward): The class to be used in
+                the feedforward block of both the encoder and the decoder. The class is duplicated
+                and the weights are re-randomized for each duplicate.
+            numeric_embedding_facade (attention_smithy.numeric_embeddings.NumericEmbeddingFacade):
+                The class that contains all numeric (position) embedding strategies to be used in
+                the model.
+        """
         super().__init__()
         self.embedding_dimension = embedding_dimension
         self.numeric_embedding_facade = numeric_embedding_facade
@@ -37,6 +59,7 @@ class MachineTranslationModel(pl.LightningModule):
         self.decoder = Decoder(decoder_layer, number_of_layers=num_decoder_layers)
         self.vocab_output_layer = VocabOutputSoftmaxLayer(embedding_dimension, tgt_vocab_size)
         self.loss_method = LabelSmoothingLoss(tgt_padding_token, confidence_probability_score=0.9)
+        #self.loss_method = MaskedLoss(tgt_padding_token, label_smoothing=0.9)
 
     def forward(self, src_tensor, tgt_tensor, src_padding_mask, tgt_padding_mask):
         src_encoded = self.forward_encode(src_tensor, src_padding_mask)
@@ -84,7 +107,9 @@ class MachineTranslationModel(pl.LightningModule):
 
         def lr_lambda(step):
             step = step + 1
-            return self.embedding_dimension**(-0.5) * min(step**(-0.5), step * self.scheduler_warmup_steps**(-1.5))
+            lr = self.embedding_dimension**(-0.5) * min(step**(-0.5), step * self.scheduler_warmup_steps**(-1.5))
+            #print(f'\n\n{lr}\n')
+            return lr
 
         scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
         return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]

@@ -1,1 +1,2 @@
 from machine_translation.loss.LabelSmoothingLoss import LabelSmoothingLoss
+from machine_translation.loss.MaskedLoss import MaskedLoss
