@@ -69,8 +69,7 @@ class MachineTranslationModel(pl.LightningModule):
 
     def forward(self, src_tensor, tgt_tensor, src_padding_mask, tgt_padding_mask):
         src_encoded = self.forward_encode(src_tensor, src_padding_mask)
-        decoder_output = self.forward_decode(tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask)
-        vocabulary_logits = self.vocab_output_layer(decoder_output)
+        vocabulary_logits = self.forward_decode(tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask)
         return vocabulary_logits
 
     def forward_encode(self, src_tensor, src_padding_mask):
@@ -92,7 +91,8 @@ class MachineTranslationModel(pl.LightningModule):
             src_padding_mask=src_padding_mask,
             numeric_embedding_facade=self.numeric_embedding_facade,
         )
-        return output
+        vocabulary_logits = self.vocab_output_layer(output)
+        return vocabulary_logits
 
     def training_step(self, batch, batch_idx):
         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch

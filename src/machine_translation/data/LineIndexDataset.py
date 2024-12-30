@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from itertools import islice
 
 class LineIndexDataset(Dataset):
-    def __init__(self, input_filepath, expected_output_filepath, max_length=100_000):
+    def __init__(self, input_filepath, expected_output_filepath, max_length=float('inf')):
         self.input_filepath = input_filepath
         self.expected_output_filepath = expected_output_filepath
         self.max_length = max_length
