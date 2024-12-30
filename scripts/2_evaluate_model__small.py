@@ -1,3 +1,5 @@
+import os
+import re
 import sys
 import torch
 import pytorch_lightning as pl
@@ -13,10 +15,8 @@ from attention_smithy.generators import GeneratorContext
 from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
 
-def train_model(
-        loss_type: str,
-        label_smoothing: float,
-        scheduler_warmup_steps: int,
+def evaluate_model(
+        checkpoint_filepath: str,
         maximum_length=100,
         batch_size=64,
         embed_dim=128,
@@ -28,6 +28,22 @@ def train_model(
 ):
     seed_everything(random_seed)
 
+    def extract_info_from_filename(filepath):
+        # Extract the filename from the filepath
+        filename = os.path.basename(filepath)
+
+        # Use regular expression to extract the string, float, and int
+        match = re.match(r'([a-zA-Z]+)-([0-9\.]+)-([0-9]+)', filename)
+
+        if match:
+            string_part = match.group(1)
+            float_part = float(match.group(2))
+            int_part = int(match.group(3))
+
+            return string_part, float_part, int_part
+        else:
+            return None
+
     data_module = MachineTranslationDataModule(
         en_filepath_suffix='_en.txt',
         de_filepath_suffix='_de.txt',
@@ -36,23 +52,13 @@ def train_model(
     )
     data_module.setup()
 
-    run_name_prefix = f'{loss_type}-{label_smoothing}-{scheduler_warmup_steps}__allLines'
-    logger = WandbLogger(project='machine-translation-small-testingVariables', name=run_name_prefix)
-
-    train_loss_checkpoint_callback = ModelCheckpoint(
-        dirpath=f"checkpoints/",
-        every_n_train_steps=50,
-        every_n_epochs=1,
-        filename=run_name_prefix + "-{epoch:02d}-{step:08d}",
-    )
-
     class ValidateAtCheckpoints(pl.Callback):
         def __init__(self):
             self.generator = GeneratorContext(method='beam_batch', no_repeat_ngram_size=3)
             self.de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')
             self.en_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
-        def on_train_epoch_end(self, trainer, pl_module, **kwargs):
+        def on_train_epoch_end(self, pl_module, val_dataloader, **kwargs):
             end_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.sep_token)
             start_token = self.en_tokenizer.convert_tokens_to_ids(self.en_tokenizer.cls_token)
             reference_translations = []
@@ -60,7 +66,7 @@ def train_model(
             with torch.no_grad():
                 count = 0
                 max_num_batches = 2
-                for batch in trainer.val_dataloaders:
+                for batch in val_dataloader:
                     if count > max_num_batches:
                         break
                     count += 1
@@ -99,21 +105,7 @@ def train_model(
                         reference_translations.append(reference_translation)
                         output_translations.append(output_translation)
                 bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
-                pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
-
-    torch.set_float32_matmul_precision('medium')
-    trainer = pl.Trainer(
-        max_epochs=20,
-        logger=logger,
-        callbacks=[
-            train_loss_checkpoint_callback,
-            ValidateAtCheckpoints(),
-        ],
-        log_every_n_steps=50,
-        #strategy='ddp',
-        #devices = 1,
-        #use_distributed_sampler=False,
-    )
+                print(bleu_score)
 
     sinusoidal_position_embedding = SinusoidalPositionEmbedding(embed_dim)
     numeric_embedding_facade = NumericEmbeddingFacade(sinusoidal_position=sinusoidal_position_embedding)
@@ -121,7 +113,9 @@ def train_model(
     decoder_self_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout, is_causal_masking=True))
     feedforward_network = FeedForwardNetwork(embed_dim, dim_feedforward, 'relu', dropout)
 
-    model = MachineTranslationModel(
+    loss_type, label_smoothing, scheduler_warmup_steps = extract_info_from_filename(checkpoint_filepath)
+
+    model = MachineTranslationModel.load_from_checkpoint(
         src_vocab_size=data_module.de_vocab_size,
         tgt_vocab_size=data_module.en_vocab_size,
         encoder_self_attention=generic_attention,
@@ -136,16 +130,13 @@ def train_model(
         scheduler_warmup_steps = scheduler_warmup_steps,
         loss_type= loss_type,
         label_smoothing = label_smoothing,
+        checkpoint_path=checkpoint_filepath,
+        strict=True,
     )
-
-    trainer.fit(model, data_module)
-    torch.save(model, 'model.pth')
-
+    callback = ValidateAtCheckpoints()
+    callback.on_train_epoch_end(model, data_module.val_dataloader())
 
 if __name__ == "__main__":
-    print("start")
-    loss_type = sys.argv[1]
-    label_smoothing = float(sys.argv[2])
-    warmup_steps = int(sys.argv[3])
-    print(f'{loss_type}-{label_smoothing}-{warmup_steps}')
-    train_model(loss_type, label_smoothing, warmup_steps)
+    checkpoint_filepath = sys.argv[1]
+    print(checkpoint_filepath)
+    evaluate_model(checkpoint_filepath)
