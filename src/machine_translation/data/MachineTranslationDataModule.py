@@ -15,6 +15,7 @@ class MachineTranslationDataModule(pl.LightningDataModule):
                  de_filepath_suffix: str,
                  maximum_length,
                  batch_size,
+                 num_training_samples,
                  ):
 
         super().__init__()
@@ -22,12 +23,13 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         self.de_filepath_suffix = de_filepath_suffix
         self.maximum_length = maximum_length
         self.batch_size = batch_size
+        self.num_training_samples = num_training_samples
         self.de_pad_token, self.en_pad_token, self.de_vocab_size, self.en_vocab_size = self.get_tokenizer_values()
 
     def setup(self, stage=None):
-        self.train_dataset = LineIndexDataset(f'{data_directory}/train{self.de_filepath_suffix}', f'{data_directory}/train{self.en_filepath_suffix}')
-        self.val_dataset = LineIndexDataset(f'{data_directory}/val{self.de_filepath_suffix}', f'{data_directory}/val{self.en_filepath_suffix}')
-        self.test_dataset = LineIndexDataset(f'{data_directory}/test{self.de_filepath_suffix}', f'{data_directory}/test{self.en_filepath_suffix}')
+        self.train_dataset = LineIndexDataset(f'{data_directory}/train{self.de_filepath_suffix}', f'{data_directory}/train{self.en_filepath_suffix}', self.num_training_samples)
+        self.val_dataset = LineIndexDataset(f'{data_directory}/val{self.de_filepath_suffix}', f'{data_directory}/val{self.en_filepath_suffix}', self.num_training_samples)
+        self.test_dataset = LineIndexDataset(f'{data_directory}/test{self.de_filepath_suffix}', f'{data_directory}/test{self.en_filepath_suffix}', self.num_training_samples)
 
     def train_dataloader(self):
         sampler = LengthBatchSampler(self.train_dataset, batch_size=self.batch_size, shuffle=True)
