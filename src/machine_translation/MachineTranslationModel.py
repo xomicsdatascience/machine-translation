@@ -97,14 +97,14 @@ class MachineTranslationModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
         vocabulary_logits = self(src_input_tensor, tgt_input_tensor, src_padding_mask, tgt_padding_mask)
-        loss = self.loss_method(vocabulary_logits, expected_output_tensor)
+        loss = self.loss_method(vocabulary_logits, expected_output_tensor, batch_idx)
         self.log("train_loss", loss, prog_bar=False, batch_size=vocabulary_logits.shape[0])
         return loss
 
     def validation_step(self, batch, batch_idx):
         src_input_tensor, tgt_input_tensor, expected_output_tensor, src_padding_mask, tgt_padding_mask = batch
         vocabulary_logits = self(src_input_tensor, tgt_input_tensor, src_padding_mask, tgt_padding_mask)
-        loss = self.loss_method(vocabulary_logits, expected_output_tensor)
+        loss = self.loss_method(vocabulary_logits, expected_output_tensor, batch_idx)
         self.log("val_loss", loss, prog_bar=False, batch_size=vocabulary_logits.shape[0])
         return loss
 

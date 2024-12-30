@@ -20,7 +20,7 @@ class MaskedLoss(nn.Module):
         self.label_smoothing = label_smoothing
         self.criterion = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing, reduction='none')
 
-    def forward(self, vocab_logits, expected_output_tokens):
+    def forward(self, vocab_logits, expected_output_tokens, batch_idx):
         """
         Note: In training, the tgt input and the expected output are effectively shifted windows of
             each other. So if a single token sentence is represented by `sentence`, tgt input is
@@ -34,7 +34,8 @@ class MaskedLoss(nn.Module):
                 predicted, of shape (batch_size, (sequence_length-1)).
         """
         mask = expected_output_tokens!= self.padding_token_idx
-        self._print_predictions(vocab_logits, expected_output_tokens)
+        if batch_idx % 1000 == 0:
+            self._print_predictions(vocab_logits, expected_output_tokens)
         masked_loss = self.criterion(vocab_logits.view(-1, vocab_logits.shape[-1]),
                                      expected_output_tokens.view(-1))
         masked_loss = masked_loss * mask.view(-1)

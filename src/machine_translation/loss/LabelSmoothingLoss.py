@@ -36,7 +36,7 @@ class LabelSmoothingLoss(nn.Module):
         self.negating_probability_score = 0.0
         self.criterion = nn.KLDivLoss(reduction='batchmean')
 
-    def forward(self, vocab_logits, expected_output_tokens):
+    def forward(self, vocab_logits, expected_output_tokens, batch_idx):
         """
         Note: In training, the tgt input and the expected output are effectively shifted windows of
             each other. So if a single token sentence is represented by `sentence`, tgt input is
@@ -50,7 +50,8 @@ class LabelSmoothingLoss(nn.Module):
                 predicted, of shape (batch_size, (sequence_length-1)).
         """
         self.device = vocab_logits.device
-        self._print_predictions(vocab_logits, expected_output_tokens)
+        if batch_idx % 1000 == 0:
+            self._print_predictions(vocab_logits, expected_output_tokens)
         smooth_label_expected_distribution = self._create_smooth_label_expected_distribution(expected_output_tokens, *vocab_logits.shape)
         vocab_logits_reshaped, smooth_label_expected_distribution_reshaped = self._reshape_to_remove_padding_token_targets(
             vocab_logits, smooth_label_expected_distribution, expected_output_tokens)
