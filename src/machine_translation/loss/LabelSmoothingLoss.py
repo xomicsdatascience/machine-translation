@@ -50,8 +50,8 @@ class LabelSmoothingLoss(nn.Module):
                 predicted, of shape (batch_size, (sequence_length-1)).
         """
         self.device = vocab_logits.device
-        if batch_idx % 1000 == 0:
-            self._print_predictions(vocab_logits, expected_output_tokens)
+        #if batch_idx % 1000 == 0:
+        #    self._print_predictions(vocab_logits, expected_output_tokens)
         smooth_label_expected_distribution = self._create_smooth_label_expected_distribution(expected_output_tokens, *vocab_logits.shape)
         vocab_logits_reshaped, smooth_label_expected_distribution_reshaped = self._reshape_to_remove_padding_token_targets(
             vocab_logits, smooth_label_expected_distribution, expected_output_tokens)

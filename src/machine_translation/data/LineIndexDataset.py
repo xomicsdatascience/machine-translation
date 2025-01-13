@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset
-from itertools import islice
 import mmap
 
 class LineIndexDataset(Dataset):
