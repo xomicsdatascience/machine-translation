@@ -211,7 +211,7 @@ experiment = Experiment(
     runner=ax_runner,
 )
 
-total_trials = 20
+total_trials = 30
 
 
 gs = choose_generation_strategy(

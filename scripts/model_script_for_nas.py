@@ -1,4 +1,4 @@
-"""
+#"""
 import logging
 import sys
 import io
@@ -71,7 +71,7 @@ def run_training_job(parsed_args):
     bleu_callback = BleuScoreValidationCallback()
 
     trainer = pl.Trainer(
-        max_epochs=1,
+        max_epochs=5,
         logger=logger,
         callbacks=[
             bleu_callback,
@@ -184,7 +184,7 @@ def parse_args():
     parser.add_argument('--feedforward_dimension', type=int, default=2048, help='Feedforward dimension. Original model used 2048.')
     parser.add_argument('--number_of_layers', type=int, default=6, help='Number of layers. Original model used 6')
     parser.add_argument('--random_seed', type=int, default=0, help='Random seed')
-    parser.add_argument('--num_training_samples', type=int, default=10_000, help='number of training samples to use. Can reduce to speed up program at cost of accuracy.')
+    parser.add_argument('--num_training_samples', type=int, default=None, help='number of training samples to use. Can reduce to speed up program at cost of accuracy.')
     return parser.parse_args()
 
 
