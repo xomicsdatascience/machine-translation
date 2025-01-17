@@ -74,6 +74,8 @@ def run_training_job(parsed_args):
     )
 
     trainer.fit(model, data_module)
+    torch.save(model, f'{run_name_prefix}_model.pth')
+
     bleu_score = bleu_callback.bleu_score
     return bleu_score
 
