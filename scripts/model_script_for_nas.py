@@ -162,7 +162,7 @@ class BleuScoreValidationCallback(pl.Callback):
                     reference_translations.append(reference_translation)
                     output_translations.append(output_translation)
         bleu_score = BLEU().corpus_score(output_translations, [reference_translations])
-        pl_module.log("bleu", bleu_score.score, prog_bar=False, batch_size=batch_size)
+        pl_module.log("bleu_score", bleu_score.score, prog_bar=False, batch_size=batch_size)
         self.bleu_score = bleu_score.score
 
 def parse_args():

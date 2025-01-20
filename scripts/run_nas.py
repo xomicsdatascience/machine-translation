@@ -54,6 +54,7 @@ from ax.core import (
 from ax import OrderConstraint
 from ax.core.search_space import HierarchicalSearchSpace
 from ax.metrics.tensorboard import TensorboardMetric
+from tensorboard.backend.event_processing import plugin_event_multiplexer as event_multiplexer
 from ax.core import Objective
 from ax.core.optimization_config import OptimizationConfig
 from ax.core import Experiment
@@ -183,12 +184,12 @@ search_space = HierarchicalSearchSpace(
 
 
 class MyTensorboardMetric(TensorboardMetric):
-    @classmethod
-    def get_ids_from_trials(cls, trials):
-        return {
-            trial.index: Path(log_dir).joinpath(str(trial.index)).as_posix()
-            for trial in trials
-        }
+
+    def _get_event_multiplexer_for_trial(self, trial):
+        mul = event_multiplexer.EventMultiplexer(max_reload_threads=20)
+        mul.AddRunsFromDirectory(Path(log_dir).joinpath(str(trial.index)).as_posix(), None)
+        mul.Reload()
+        return mul
 
     @classmethod
     def is_available_while_running(cls):
