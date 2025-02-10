@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from machine_translation import MachineTranslationModel
 from machine_translation.data import MachineTranslationDataModule
-from attention_smithy.numeric_embeddings import SinusoidalPositionEmbedding, LearnedPositionEmbedding, RotaryPositionEmbedding, ALiBiPositionEmbedding, NumericEmbeddingFacade, NoAddEmbedding, PassthroughEmbedding
+from attention_smithy.numeric_embeddings import SinusoidalPositionEmbedding, LearnedPositionEmbedding, RotaryPositionEmbedding, ALiBiPositionEmbedding, NumericEmbeddingManager, NoAddEmbedding, PassthroughEmbedding
 from attention_smithy.components import MultiheadAttention, FeedForwardNetwork
 from attention_smithy.attention import StandardAttentionMethod
 from attention_smithy.utils import seed_everything
@@ -52,7 +52,7 @@ def run_training_job(parsed_args):
     rotary_position_embedding = RotaryPositionEmbedding(parsed_args.embedding_dimension // parsed_args.number_of_heads) if parsed_args.rotary_position else PassthroughEmbedding()
     alibi_position_embedding = ALiBiPositionEmbedding(parsed_args.number_of_heads) if parsed_args.alibi_position else NoAddEmbedding()
 
-    numeric_embedding_facade = NumericEmbeddingFacade(sinusoidal_position=sinusoidal_position_embedding, learned_position=learned_position_embedding, rotary_position=rotary_position_embedding, alibi_position=alibi_position_embedding)
+    numeric_embedding_manager = NumericEmbeddingManager(sinusoidal_position=sinusoidal_position_embedding, learned_position=learned_position_embedding, rotary_position=rotary_position_embedding, alibi_position=alibi_position_embedding)
     generic_attention = MultiheadAttention(embedding_dimension= parsed_args.embedding_dimension, number_of_heads= parsed_args.number_of_heads, attention_method= StandardAttentionMethod(parsed_args.dropout))
     decoder_self_attention = MultiheadAttention(embedding_dimension= parsed_args.embedding_dimension, number_of_heads= parsed_args.number_of_heads, attention_method= StandardAttentionMethod(parsed_args.dropout, is_causal_masking=True))
     feedforward_network = FeedForwardNetwork(parsed_args.embedding_dimension, parsed_args.feedforward_dimension, parsed_args.activation, parsed_args.dropout)
@@ -63,7 +63,7 @@ def run_training_job(parsed_args):
         decoder_self_attention=decoder_self_attention,
         decoder_cross_attention=generic_attention,
         feedforward_network=feedforward_network,
-        numeric_embedding_facade=numeric_embedding_facade,
+        numeric_embedding_manager=numeric_embedding_manager,
         tgt_padding_token=data_module.en_pad_token,
         embedding_dimension=parsed_args.embedding_dimension,
         num_encoder_layers=parsed_args.number_of_layers,

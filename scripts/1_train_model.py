@@ -6,7 +6,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from machine_translation import MachineTranslationModel
 from machine_translation.data import MachineTranslationDataModule
-from attention_smithy.numeric_embeddings import SinusoidalPositionEmbedding, NumericEmbeddingFacade
+from attention_smithy.numeric_embeddings import SinusoidalPositionEmbedding, NumericEmbeddingManager
 from attention_smithy.components import MultiheadAttention, FeedForwardNetwork
 from attention_smithy.attention import StandardAttentionMethod
 from attention_smithy.utils import seed_everything
@@ -64,7 +64,7 @@ def train_model(
     )
 
     sinusoidal_position_embedding = SinusoidalPositionEmbedding(embed_dim)
-    numeric_embedding_facade = NumericEmbeddingFacade(sinusoidal_position=sinusoidal_position_embedding)
+    numeric_embedding_manager = NumericEmbeddingManager(sinusoidal_position=sinusoidal_position_embedding)
     generic_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout))
     decoder_self_attention = MultiheadAttention(embedding_dimension = embed_dim, number_of_heads = num_heads, attention_method = StandardAttentionMethod(dropout, is_causal_masking=True))
     feedforward_network = FeedForwardNetwork(embed_dim, dim_feedforward, 'relu', dropout)
@@ -76,7 +76,7 @@ def train_model(
         decoder_self_attention=decoder_self_attention,
         decoder_cross_attention=generic_attention,
         feedforward_network=feedforward_network,
-        numeric_embedding_facade=numeric_embedding_facade,
+        numeric_embedding_manager=numeric_embedding_manager,
         tgt_padding_token=data_module.en_pad_token,
         embedding_dimension=embed_dim,
         num_encoder_layers=number_of_layers,

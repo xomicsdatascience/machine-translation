@@ -20,7 +20,7 @@ class MachineTranslationModel(pl.LightningModule):
              decoder_self_attention,
              decoder_cross_attention,
              feedforward_network,
-             numeric_embedding_facade,
+             numeric_embedding_manager,
              tgt_padding_token: int,
              scheduler_warmup_steps: int,
              loss_type: str,
@@ -45,13 +45,13 @@ class MachineTranslationModel(pl.LightningModule):
             feedforward_network (attention_smithy.components.feedforward): The class to be used in
                 the feedforward block of both the encoder and the decoder. The class is duplicated
                 and the weights are re-randomized for each duplicate.
-            numeric_embedding_facade (attention_smithy.numeric_embeddings.NumericEmbeddingFacade):
+            numeric_embedding_manager (attention_smithy.numeric_embeddings.NumericEmbeddingManager):
                 The class that contains all numeric (position) embedding strategies to be used in
                 the model.
         """
         super().__init__()
         self.embedding_dimension = embedding_dimension
-        self.numeric_embedding_facade = numeric_embedding_facade
+        self.numeric_embedding_manager = numeric_embedding_manager
         self.scheduler_warmup_steps = scheduler_warmup_steps
         self.src_token_embedding = nn.Embedding(src_vocab_size, embedding_dimension)
         self.tgt_token_embedding = nn.Embedding(tgt_vocab_size, embedding_dimension)
@@ -74,8 +74,8 @@ class MachineTranslationModel(pl.LightningModule):
 
     def forward_encode(self, src_tensor, src_padding_mask):
         src_embedding = self.src_token_embedding(src_tensor) * math.sqrt(self.embedding_dimension)
-        position_embedding = self.numeric_embedding_facade.calculate_sinusoidal_and_learned_tokenizations(src_embedding)
-        event_encoded = self.encoder(src=src_embedding + position_embedding, src_padding_mask=src_padding_mask, numeric_embedding_facade=self.numeric_embedding_facade)
+        position_embedding = self.numeric_embedding_manager.calculate_sinusoidal_and_learned_tokenizations(src_embedding)
+        event_encoded = self.encoder(src=src_embedding + position_embedding, src_padding_mask=src_padding_mask, numeric_embedding_manager=self.numeric_embedding_manager)
         return event_encoded
 
     def forward_decode(self, tgt_tensor, src_encoded, tgt_padding_mask, src_padding_mask):
@@ -89,7 +89,7 @@ class MachineTranslationModel(pl.LightningModule):
             src=src_encoded,
             tgt_padding_mask=tgt_padding_mask,
             src_padding_mask=src_padding_mask,
-            numeric_embedding_facade=self.numeric_embedding_facade,
+            numeric_embedding_manager=self.numeric_embedding_manager,
         )
         vocabulary_logits = self.vocab_output_layer(output)
         return vocabulary_logits
