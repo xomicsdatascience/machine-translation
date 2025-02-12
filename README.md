@@ -1,7 +1,7 @@
 # machine-translation
 Replication of the "[Attention Is All you Need](https://arxiv.org/abs/1706.03762)" machine translation model using [AttentionSmithy](https://github.com/xomicsdatascience/AttentionSmithy), a package for creating transformer models.
 
-# Main Files of note
+# Main Files
 ## scripts/0_data_prep.py
 This file downloads the WMT-14 German-English dataset and processes it for loading into the model. This is also where the train/val/test split occurs. 
 
