@@ -33,17 +33,20 @@ class MachineTranslationDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         sampler = torch.utils.data.RandomSampler(self.train_dataset)
-        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.train_dataset)
         return DataLoader(self.train_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def val_dataloader(self):
         sampler = torch.utils.data.SequentialSampler(self.val_dataset)
-        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.val_dataset)
         return DataLoader(self.val_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def test_dataloader(self):
         sampler = torch.utils.data.SequentialSampler(self.test_dataset)
-        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.test_dataset)
         return DataLoader(self.test_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def _collate_function(self, batch):
