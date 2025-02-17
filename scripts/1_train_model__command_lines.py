@@ -12,9 +12,6 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from machine_translation import MachineTranslationModel
 from machine_translation.data import MachineTranslationDataModule
-from attention_smithy.numeric_embeddings import SinusoidalPositionEmbedding, LearnedPositionEmbedding, RotaryPositionEmbedding, ALiBiPositionEmbedding, NumericEmbeddingManager, NoAddEmbedding, PassthroughEmbedding
-from attention_smithy.components import MultiheadAttention, FeedForwardNetwork
-from attention_smithy.attention import StandardAttentionMethod
 from attention_smithy.utils import seed_everything
 from attention_smithy.generators import GeneratorContext
 from transformers import AutoTokenizer
@@ -36,41 +33,47 @@ def run_training_job(parsed_args):
     run_name_prefix = f'sinusoid-{parsed_args.sinusoidal_position}_learned-{parsed_args.learned_position}_rotary-{parsed_args.rotary_position}_alibi-{parsed_args.alibi_position}_dropout-{parsed_args.dropout}_activation-{parsed_args.activation}'
     logger = WandbLogger(project='NAS optimized vs. original', name=run_name_prefix)
 
+    # Create strategies config for multi-GPU training
+    strategy = 'ddp' if torch.cuda.device_count() > 1 else 'auto'
+
     bleu_callback = BleuScoreValidationCallback()
 
     trainer = pl.Trainer(
-        max_epochs=40,
+        max_epochs=1,
         logger=logger,
+        log_every_n_steps=500,
         callbacks=[
             bleu_callback,
         ],
-        log_every_n_steps=500,
+        strategy=strategy,
+        accelerator='auto',  # Let Lightning automatically detect GPU/CPU
+        devices='auto'       # Use all available devices
     )
 
-    sinusoidal_position_embedding = SinusoidalPositionEmbedding(parsed_args.embedding_dimension) if parsed_args.sinusoidal_position else NoAddEmbedding()
-    learned_position_embedding = LearnedPositionEmbedding(max_sequence_length=3_000, embedding_dimension=parsed_args.embedding_dimension) if parsed_args.learned_position else NoAddEmbedding()
-    rotary_position_embedding = RotaryPositionEmbedding(parsed_args.embedding_dimension // parsed_args.number_of_heads) if parsed_args.rotary_position else PassthroughEmbedding()
-    alibi_position_embedding = ALiBiPositionEmbedding(parsed_args.number_of_heads) if parsed_args.alibi_position else NoAddEmbedding()
+    # Convert args to kwargs dict for model initialization
+    model_kwargs = {
+        'embedding_dimension': parsed_args.embedding_dimension,
+        'number_of_heads': parsed_args.number_of_heads,
+        'dropout': parsed_args.dropout,
+        'activation': parsed_args.activation,
+        'feedforward_dimension': parsed_args.feedforward_dimension,
+        'num_encoder_layers': parsed_args.number_of_layers,
+        'num_decoder_layers': parsed_args.number_of_layers,
+        'scheduler_warmup_steps': parsed_args.scheduler_warmup_steps,
+        'loss_type': parsed_args.loss_type,
+        'label_smoothing': parsed_args.label_smoothing,
+        'use_sinusoidal': parsed_args.sinusoidal_position,
+        'use_learned': parsed_args.learned_position,
+        'use_rotary': parsed_args.rotary_position,
+        'use_alibi': parsed_args.alibi_position,
+    }
 
-    numeric_embedding_manager = NumericEmbeddingManager(sinusoidal_position=sinusoidal_position_embedding, learned_position=learned_position_embedding, rotary_position=rotary_position_embedding, alibi_position=alibi_position_embedding)
-    generic_attention = MultiheadAttention(embedding_dimension= parsed_args.embedding_dimension, number_of_heads= parsed_args.number_of_heads, attention_method= StandardAttentionMethod(parsed_args.dropout))
-    decoder_self_attention = MultiheadAttention(embedding_dimension= parsed_args.embedding_dimension, number_of_heads= parsed_args.number_of_heads, attention_method= StandardAttentionMethod(parsed_args.dropout, is_causal_masking=True))
-    feedforward_network = FeedForwardNetwork(parsed_args.embedding_dimension, parsed_args.feedforward_dimension, parsed_args.activation, parsed_args.dropout)
+    # Create model with required args and kwargs
     model = MachineTranslationModel(
         src_vocab_size=data_module.de_vocab_size,
         tgt_vocab_size=data_module.en_vocab_size,
-        encoder_self_attention=generic_attention,
-        decoder_self_attention=decoder_self_attention,
-        decoder_cross_attention=generic_attention,
-        feedforward_network=feedforward_network,
-        numeric_embedding_manager=numeric_embedding_manager,
         tgt_padding_token=data_module.en_pad_token,
-        embedding_dimension=parsed_args.embedding_dimension,
-        num_encoder_layers=parsed_args.number_of_layers,
-        num_decoder_layers=parsed_args.number_of_layers,
-        scheduler_warmup_steps = parsed_args.scheduler_warmup_steps,
-        loss_type= parsed_args.loss_type,
-        label_smoothing = parsed_args.label_smoothing,
+        **model_kwargs
     )
 
     trainer.fit(model, data_module)
@@ -78,6 +81,7 @@ def run_training_job(parsed_args):
 
     bleu_score = bleu_callback.bleu_score
     return bleu_score
+
 
 class BleuScoreValidationCallback(pl.Callback):
     def __init__(self):
