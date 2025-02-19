@@ -194,9 +194,10 @@ class MachineTranslationModel(pl.LightningModule):
 
         def lr_lambda(step):
             step = step + 1
-            lr = self.embedding_dimension**(-0.5) * min(step**(-0.5), step * self.scheduler_warmup_steps**(-1.5))
-            #print(f'\n\n{lr}\n')
-            return lr
+            num_gpus = torch.cuda.device_count()
+            base_lr = self.embedding_dimension ** (-0.5) * min(step ** (-0.5),
+                                                               step * self.scheduler_warmup_steps ** (-1.5))
+            return base_lr * num_gpus
 
         scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
         return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]

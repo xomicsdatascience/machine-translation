@@ -21,11 +21,15 @@ def run_training_job(parsed_args):
     seed_everything(parsed_args.random_seed)
     torch.set_float32_matmul_precision('medium')
 
+    num_gpus = torch.cuda.device_count()
+    effective_batch_size = parsed_args.batch_size
+    per_gpu_batch_size = effective_batch_size // num_gpus if num_gpus > 1 else effective_batch_size
+
     data_module = MachineTranslationDataModule(
         en_filepath_suffix='_en.txt',
         de_filepath_suffix='_de.txt',
         maximum_length=parsed_args.maximum_length,
-        batch_size=parsed_args.batch_size,
+        batch_size=per_gpu_batch_size,
         num_training_samples=parsed_args.num_training_samples,
     )
     data_module.setup()
