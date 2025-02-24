@@ -156,7 +156,7 @@ def parse_args():
     parser.add_argument('--label_smoothing', type=float, default=0.9, help='Label smoothing value')
     parser.add_argument('--scheduler_warmup_steps', type=int, default=4000, help='Number of warmup steps for scheduler')
     parser.add_argument('--maximum_length', type=int, default=100, help='Maximum sequence length')
-    parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
+    parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     parser.add_argument('--embedding_dimension', type=int, default=512, help='Embedding dimension. Original model used 512')
     parser.add_argument('--number_of_heads', type=int, default=8, help='Number of attention heads. Original model used 8')
     parser.add_argument('--feedforward_dimension', type=int, default=2048, help='Feedforward dimension. Original model used 2048.')
