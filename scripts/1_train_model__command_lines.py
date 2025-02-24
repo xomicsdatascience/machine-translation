@@ -89,7 +89,7 @@ def run_training_job(parsed_args):
 
 class BleuScoreValidationCallback(pl.Callback):
     def __init__(self):
-        self.generator = GeneratorContext(method='beam_batch')
+        self.generator = GeneratorContext(method='beam')
         self.de_tokenizer = AutoTokenizer.from_pretrained('bert-base-german-cased')
         self.en_tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
