@@ -189,18 +189,20 @@ class MachineTranslationModel(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=False, batch_size=vocabulary_logits.shape[0])
         return loss
 
+
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), lr=1.0, betas=(0.9, 0.98), eps=1e-9)
+        num_gpus = torch.cuda.device_count()
+        effective_warmup_steps = self.scheduler_warmup_steps // num_gpus
 
         def lr_lambda(step):
             step = step + 1
-            num_gpus = torch.cuda.device_count()
-            base_lr = self.embedding_dimension ** (-0.5) * min(step ** (-0.5),
-                                                               step * self.scheduler_warmup_steps ** (-1.5))
-            return base_lr * num_gpus
+            lr = self.embedding_dimension ** (-0.5) * min(step ** (-0.5), step * effective_warmup_steps ** (-1.5))
+            return lr
 
         scheduler = LambdaLR(optimizer, lr_lambda=lr_lambda)
         return [optimizer], [{'scheduler': scheduler, 'interval': 'step'}]
+
 
 class VocabOutputSoftmaxLayer(nn.Module):
     def __init__(self,
