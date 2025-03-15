@@ -12,7 +12,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 from machine_translation import MachineTranslationModel
 from machine_translation.data import MachineTranslationDataModule
-from attention_smithy.utils import seed_everything
+from attention_smithy.utils import seed_everything, get_available_gpu_count
 from attention_smithy.generators import GeneratorContext
 from transformers import AutoTokenizer
 from sacrebleu.metrics import BLEU
@@ -21,7 +21,7 @@ def run_training_job(parsed_args):
     seed_everything(parsed_args.random_seed)
     torch.set_float32_matmul_precision('medium')
 
-    num_gpus = torch.cuda.device_count()
+    num_gpus = get_available_gpu_count()
     effective_batch_size = parsed_args.batch_size
     per_gpu_batch_size = effective_batch_size // num_gpus if num_gpus > 1 else effective_batch_size
 
@@ -38,7 +38,7 @@ def run_training_job(parsed_args):
     logger = WandbLogger(project='NAS optimized vs. original', name=run_name_prefix)
 
     # Create strategies config for multi-GPU training
-    strategy = 'ddp' if torch.cuda.device_count() > 1 else 'auto'
+    strategy = 'ddp' if num_gpus > 1 else 'auto'
 
     bleu_callback = BleuScoreValidationCallback()
 
@@ -50,11 +50,10 @@ def run_training_job(parsed_args):
             bleu_callback,
         ],
         strategy=strategy,
-        accelerator='auto',  # Let Lightning automatically detect GPU/CPU
-        devices='auto'       # Use all available devices
+        accelerator='auto',
+        devices='auto'
     )
 
-    # Convert args to kwargs dict for model initialization
     model_kwargs = {
         'embedding_dimension': parsed_args.embedding_dimension,
         'number_of_heads': parsed_args.number_of_heads,
@@ -72,7 +71,6 @@ def run_training_job(parsed_args):
         'use_alibi': parsed_args.alibi_position,
     }
 
-    # Create model with required args and kwargs
     model = MachineTranslationModel(
         src_vocab_size=data_module.de_vocab_size,
         tgt_vocab_size=data_module.en_vocab_size,
