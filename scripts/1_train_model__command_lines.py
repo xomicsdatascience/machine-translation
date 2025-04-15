@@ -142,8 +142,8 @@ class BleuScoreValidationCallback(pl.Callback):
         self.bleu_score = bleu_score.score
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="generformer-nas")
-    parser.add_argument("--log_path", type=str, required=True, help="dir to place tensorboard logs from all trials")
+    parser = argparse.ArgumentParser(description="machine-translation")
+    parser.add_argument("--log_path", type=str, required=True, help="dir to place logs from all trials")
     parser.add_argument('--sinusoidal_position', action='store_true', default=False)
     parser.add_argument('--rotary_position', action='store_true', default=False)
     parser.add_argument('--alibi_position', action='store_true', default=False)
