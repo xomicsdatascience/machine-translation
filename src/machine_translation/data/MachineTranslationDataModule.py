@@ -32,16 +32,22 @@ class MachineTranslationDataModule(pl.LightningDataModule):
         self.test_dataset = LineIndexDataset(f'{data_directory}/test{self.de_filepath_suffix}', f'{data_directory}/test{self.en_filepath_suffix}', self.num_training_samples)
 
     def train_dataloader(self):
-        sampler = LengthBatchSampler(self.train_dataset, batch_size=self.batch_size, shuffle=True)
-        return DataLoader(self.train_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
+        sampler = torch.utils.data.RandomSampler(self.train_dataset)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.train_dataset)
+        return DataLoader(self.train_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def val_dataloader(self):
-        sampler = LengthBatchSampler(self.val_dataset, batch_size=self.batch_size)
-        return DataLoader(self.val_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
+        sampler = torch.utils.data.SequentialSampler(self.val_dataset)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.val_dataset)
+        return DataLoader(self.val_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def test_dataloader(self):
-        sampler = LengthBatchSampler(self.test_dataset, batch_size=self.batch_size)
-        return DataLoader(self.test_dataset, batch_sampler=sampler, collate_fn=self._collate_function)
+        sampler = torch.utils.data.SequentialSampler(self.test_dataset)
+        batch_sampler = LengthBatchSampler(sampler, batch_size=self.batch_size, drop_last=False,
+                                           dataset=self.test_dataset)
+        return DataLoader(self.test_dataset, batch_sampler=batch_sampler, collate_fn=self._collate_function)
 
     def _collate_function(self, batch):
         input_tensors, expected_output_tensors = zip(*batch)

@@ -1,41 +1,57 @@
-from torch.utils.data import Sampler
+import torch
+from torch.utils.data import BatchSampler, Sampler
+import torch.distributed as dist
 import random
 
-class LengthBatchSampler(Sampler):
-    def __init__(self, dataset, batch_size, shuffle=False):#, max_tokens=10_000):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        #self.max_tokens = max_tokens
-        self.lengths = self.dataset.lengths
-        self.shuffle = shuffle
-        self.batches = self._setup_batches()
 
-    def __len__(self):
-        return len(self.batches)
+class LengthBatchSampler(BatchSampler):
+    def __init__(self, sampler, batch_size, drop_last=False, dataset=None):
+        if not isinstance(sampler, Sampler):
+            raise ValueError("sampler should be an instance of "
+                             "torch.utils.data.Sampler, but got sampler={}"
+                             .format(sampler))
+
+        self.sampler = sampler
+        self.batch_size = batch_size
+        self.drop_last = drop_last
+
+        # Handle both regular and distributed cases
+        if hasattr(sampler, 'data_source'):
+            self.lengths = getattr(sampler.data_source, 'lengths', None)
+        elif dataset is not None:
+            self.lengths = dataset.lengths
+        else:
+            raise ValueError("Either sampler must have data_source with lengths or dataset must be provided")
 
     def __iter__(self):
-        return iter(self.batches)
+        # Get indices from sampler (handles both distributed and non-distributed cases)
+        indices = list(self.sampler)
 
-    def _setup_batches(self):
-        indices = list(range(len(self.dataset)))
+        # Sort indices by sequence length
         indices.sort(key=lambda i: self.lengths[i])
+
         batches = []
-        current_batch = []
-        current_tokens = 0
+        batch = []
+
         for idx in indices:
-            sample_length = self.lengths[idx]
-            if len(current_batch) >= self.batch_size:
-            #if current_tokens + sample_length > self.max_tokens:
-                batches.append(current_batch)
-                current_batch = [idx]
-                current_tokens = sample_length
-            else:
-                current_batch.append(idx)
-                current_tokens += sample_length
-        if current_batch:
-            batches.append(current_batch)
-        if self.shuffle:
-            random.shuffle(batches)
-        return batches
+            batch.append(idx)
+            if len(batch) == self.batch_size:
+                batches.append(batch)
+                batch = []
 
+        if len(batch) > 0 and not self.drop_last:
+            batches.append(batch)
 
+        # Shuffle batches if using a random sampler
+        if not isinstance(self.sampler, torch.utils.data.distributed.DistributedSampler):
+            if isinstance(self.sampler, torch.utils.data.RandomSampler):
+                random.shuffle(batches)
+
+        for batch in batches:
+            yield batch
+
+    def __len__(self):
+        if self.drop_last:
+            return len(self.sampler) // self.batch_size
+        else:
+            return (len(self.sampler) + self.batch_size - 1) // self.batch_size
